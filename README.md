@@ -48,8 +48,6 @@ Every image on the site currently renders as a soft placeholder box
 (via the `PlaceholderImage` component) so the layout is fully built
 but nothing is hard-coded. To swap in a real asset:
 
-1. Put the image file in `public/images/...` (create subfolders as you like,
-   e.g. `public/images/execs/`, `public/images/events/`).
 2. Pass its path as the `src` prop, e.g.:
    ```jsx
    <PlaceholderImage src="/images/execs/ananya-rao.jpg" alt="Ananya Rao" />
