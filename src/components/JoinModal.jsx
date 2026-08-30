@@ -86,12 +86,12 @@ export default function JoinModal() {
       }
 
       const res = await fetch(
-        `${import.meta.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-checkout`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
             memberId,
