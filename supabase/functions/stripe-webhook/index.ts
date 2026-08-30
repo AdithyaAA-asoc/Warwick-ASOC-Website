@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
                 </tr>
                 <tr>
                   <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b5f82;border-top:1px solid #ede8f8;">Membership</td>
-                  <td style="padding:12px 16px;font-size:13px;font-weight:700;color:#170a2c;border-top:1px solid #ede8f8;">Annual 2026/27 · £8</td>
+                  <td style="padding:12px 16px;font-size:13px;font-weight:700;color:#170a2c;border-top:1px solid #ede8f8;">Annual 2026/27 · £11</td>
                 </tr>
                 <tr style="background:#f9f6ff;">
                   <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b5f82;border-top:1px solid #ede8f8;">Status</td>

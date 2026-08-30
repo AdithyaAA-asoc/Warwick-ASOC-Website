@@ -144,7 +144,7 @@ export default function JoinModal() {
           <h2 id="join-modal-title" className="mt-1 font-display text-2xl font-semibold text-purple-950">
             Become a Member
           </h2>
-          <p className="mt-1 text-sm text-ink-400">Annual membership · £8 · 2026/27 academic year</p>
+          <p className="mt-1 text-sm text-ink-400">Annual membership · £11 · 2026/27 academic year</p>
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
@@ -236,7 +236,7 @@ export default function JoinModal() {
                 Redirecting to payment…
               </>
             ) : (
-              'Register & Pay £8'
+              'Register & Pay £11'
             )}
           </Button>
 

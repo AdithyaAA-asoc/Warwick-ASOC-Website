@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
               name: 'Warwick Asian Society — Annual Membership 2026/27',
               description: 'Full access to events, socials and member benefits for the academic year.',
             },
-            unit_amount: 800,
+            unit_amount: 1100,
           },
           quantity: 1,
         },

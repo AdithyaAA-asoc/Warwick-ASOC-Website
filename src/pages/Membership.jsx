@@ -34,7 +34,7 @@ const BENEFITS = [
 
 const STEPS = [
   { title: 'Fill in your details', body: 'Enter your name, Warwick email and year of study.' },
-  { title: 'Complete payment', body: 'Pay securely via Stripe — just £8 for the full academic year.' },
+  { title: 'Complete payment', body: 'Pay securely via Stripe — just £11 for the full academic year.' },
   { title: "You're in!", body: 'Get a confirmation email and instant access to member benefits.' },
 ]
 
@@ -152,7 +152,7 @@ export default function Membership() {
               </p>
 
               <div className="mt-2 flex items-end gap-1">
-                <span className="font-display text-5xl font-semibold text-purple-950">£8</span>
+                <span className="font-display text-5xl font-semibold text-purple-950">£11</span>
                 <span className="pb-1 text-sm text-ink-300">/ year</span>
               </div>
 
