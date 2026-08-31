@@ -31,26 +31,28 @@ Deno.serve(async (req) => {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
-    const memberId = session.metadata?.memberId
+    const { firstName, lastName, email, collegeYear } = session.metadata ?? {}
 
-    if (!memberId) {
-      return new Response('No memberId in metadata', { status: 400 })
+    if (!email) {
+      return new Response('Missing member details in metadata', { status: 400 })
     }
 
-    const { data: member, error: fetchErr } = await supabase
+    // Insert member now that payment is confirmed — ignore duplicate emails
+    const { error: insertErr } = await supabase
       .from('members')
-      .select('*')
-      .eq('id', memberId)
-      .single()
+      .insert({
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        college_year: collegeYear,
+        stripe_session_id: session.id,
+        paid: true,
+        paid_at: new Date().toISOString(),
+      })
 
-    if (fetchErr || !member) {
-      return new Response('Member not found', { status: 404 })
+    if (insertErr && insertErr.code !== '23505') {
+      return new Response(`DB insert failed: ${insertErr.message}`, { status: 500 })
     }
-
-    await supabase
-      .from('members')
-      .update({ paid: true, paid_at: new Date().toISOString() })
-      .eq('id', memberId)
 
     const emailHtml = `
 <!DOCTYPE html>
@@ -78,7 +80,7 @@ Deno.serve(async (req) => {
           <!-- Body -->
           <tr>
             <td style="padding:36px 40px;">
-              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#17101f;">Hi ${member.first_name},</p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#17101f;">Hi ${firstName},</p>
               <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#44384f;">
                 Thank you for joining Warwick Asian Society. You're now a full member for the 2026/27 academic year — here's a summary of your registration:
               </p>
@@ -87,15 +89,15 @@ Deno.serve(async (req) => {
               <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ede8f8;border-radius:12px;overflow:hidden;margin-bottom:28px;">
                 <tr style="background:#f9f6ff;">
                   <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b5f82;width:40%;">Name</td>
-                  <td style="padding:12px 16px;font-size:13px;font-weight:700;color:#170a2c;">${member.first_name} ${member.last_name}</td>
+                  <td style="padding:12px 16px;font-size:13px;font-weight:700;color:#170a2c;">${firstName} ${lastName}</td>
                 </tr>
                 <tr>
                   <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b5f82;border-top:1px solid #ede8f8;">Email</td>
-                  <td style="padding:12px 16px;font-size:13px;font-weight:700;color:#170a2c;border-top:1px solid #ede8f8;">${member.email}</td>
+                  <td style="padding:12px 16px;font-size:13px;font-weight:700;color:#170a2c;border-top:1px solid #ede8f8;">${email}</td>
                 </tr>
                 <tr style="background:#f9f6ff;">
                   <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b5f82;border-top:1px solid #ede8f8;">Year of Study</td>
-                  <td style="padding:12px 16px;font-size:13px;font-weight:700;color:#170a2c;border-top:1px solid #ede8f8;">${member.college_year}</td>
+                  <td style="padding:12px 16px;font-size:13px;font-weight:700;color:#170a2c;border-top:1px solid #ede8f8;">${collegeYear}</td>
                 </tr>
                 <tr>
                   <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b5f82;border-top:1px solid #ede8f8;">Membership</td>
@@ -139,8 +141,8 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: 'Warwick Asian Society <noreply@warwickasiansociety.social>',
-        to: member.email,
-        subject: `Welcome to Warwick Asian Society, ${member.first_name}!`,
+        to: email,
+        subject: `Welcome to Warwick Asian Society, ${firstName}!`,
         html: emailHtml,
       }),
     })

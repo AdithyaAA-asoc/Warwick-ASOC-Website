@@ -1,5 +1,4 @@
 import Stripe from 'https://esm.sh/stripe@16.2.0'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,18 +9,13 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
 })
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { memberId, email, firstName, lastName } = await req.json()
+    const { email, firstName, lastName, collegeYear } = await req.json()
 
     const origin = req.headers.get('origin') ?? Deno.env.get('SITE_URL')
 
@@ -44,13 +38,8 @@ Deno.serve(async (req) => {
       customer_email: email,
       success_url: `${origin}/#/membership?payment=success`,
       cancel_url: `${origin}/#/membership?payment=cancelled`,
-      metadata: { memberId, firstName, lastName },
+      metadata: { firstName, lastName, email, collegeYear },
     })
-
-    await supabase
-      .from('members')
-      .update({ stripe_session_id: session.id })
-      .eq('id', memberId)
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

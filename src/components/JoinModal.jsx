@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useJoinModal } from '../context/JoinModalContext.jsx'
 import { Button } from './ui.jsx'
-import { supabase } from '../lib/supabase.js'
 
 const COLLEGE_YEARS = [
   '1st Year',
@@ -63,28 +62,6 @@ export default function JoinModal() {
 
     setLoading(true)
     try {
-      const memberId = crypto.randomUUID()
-
-      const { error: dbErr } = await supabase
-        .from('members')
-        .insert({
-          id: memberId,
-          first_name: form.firstName.trim(),
-          last_name: form.lastName.trim(),
-          email: form.email.trim().toLowerCase(),
-          college_year: form.collegeYear,
-        })
-
-      if (dbErr) {
-        if (dbErr.code === '23505') {
-          setError('This email is already registered. If you haven\'t paid yet, please contact us.')
-        } else {
-          setError('Something went wrong saving your details. Please try again.')
-        }
-        setLoading(false)
-        return
-      }
-
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout`,
         {
@@ -94,10 +71,10 @@ export default function JoinModal() {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
-            memberId,
             email: form.email.trim().toLowerCase(),
             firstName: form.firstName.trim(),
             lastName: form.lastName.trim(),
+            collegeYear: form.collegeYear,
           }),
         },
       )
@@ -241,7 +218,7 @@ export default function JoinModal() {
           </Button>
 
           <p className="text-center text-xs text-ink-300">
-            Secure payment via Stripe · No account created · Confirmation email sent after payment
+            Secure payment via Stripe · Confirmation email sent after payment
           </p>
         </form>
       </div>
