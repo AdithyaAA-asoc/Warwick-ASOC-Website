@@ -1,7 +1,7 @@
 import { HeroBackdrop, RangoliMedallion, KolamMedallion, KolamChain, CornerMotif, TextileTrim, PulliField } from '../components/Motifs.jsx'
-import PlaceholderImage from '../components/PlaceholderImage.jsx'
 import { Button, Card, Eyebrow, Section, SectionHeading } from '../components/ui.jsx'
 import { useJoinModal } from '../context/JoinModalContext.jsx'
+import PlaceholderImage from '../components/PlaceholderImage.jsx'
 
 const PILLARS = [
   {
@@ -71,14 +71,10 @@ export default function About() {
 
           <div className="relative mx-auto w-full max-w-sm">
             <div className="absolute -inset-6 rounded-[2rem] border border-gold-400/30" />
-            {/* Swap for a hero photo or the society crest once available. */}
-            <PlaceholderImage
-              icon="logo"
-              ratio="aspect-[4/5]"
-              rounded="rounded-[1.75rem]"
-              label="Society photo / crest"
-              className="border-purple-700/60 from-purple-800/60 to-purple-900/60 text-gold-300 shadow-2xl"
+            <img
+              src="/images/front_page.jpg"
               alt="Warwick Asian Society"
+              className="w-full rounded-[1.75rem] object-cover shadow-2xl aspect-[4/5]"
             />
             <RangoliMedallion className="absolute -bottom-8 -right-8 h-24 w-24 text-gold-400 opacity-90" />
           </div>

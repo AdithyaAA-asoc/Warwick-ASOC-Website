@@ -35,15 +35,11 @@ export default function Navbar() {
     >
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 sm:px-8">
         <NavLink to="/" className="flex items-center gap-3 shrink-0" onClick={() => setOpen(false)}>
-          {/* Swap for the real Warwick Asian Society logo: place the file at
-              /public/images/logo.png and pass src="/images/logo.png" below. */}
-          <PlaceholderImage
-            icon="logo"
-            ratio="aspect-square"
-            rounded="rounded-full"
-            label={null}
-            className="h-10 w-10 shrink-0"
+          <img
+            src="/images/logo.png"
             alt="Warwick Asian Society logo"
+            className="h-10 w-10 shrink-0 rounded-full object-contain"
+            onError={(e) => { e.target.style.display = 'none' }}
           />
           <span className="font-display text-lg font-semibold leading-tight text-purple-950">
             Warwick Asian
