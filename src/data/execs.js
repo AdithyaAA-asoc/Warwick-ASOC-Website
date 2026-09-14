@@ -18,7 +18,7 @@ export const execTeams = [
         name: 'Rohan Goraniya',
         role: 'President',
         bio: 'Co-leads the society, overseeing day-to-day operations and representing the society within the Warwick Students\' Union.',
-        photo: "/images/execs/rohan_g.jpg",
+        photo: "/images/execs/rohang.jpg",
         socials: { instagram: '#' },
       },
       {
