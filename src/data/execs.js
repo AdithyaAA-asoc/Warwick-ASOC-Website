@@ -24,7 +24,7 @@ export const execTeams = [
       {
         name: 'Kira Patel',
         role: 'Vice President',
-        bio: 'Supports the presidents across all areas of the society, stepping in where needed and helping drive the exec team forward.',
+        bio: 'Supports the presidents across all areas of the society,stepping in where needed and helping drive the exec team forward.',
         photo: "/images/execs/kira.jpg",
         socials: { instagram: '#' },
       },
