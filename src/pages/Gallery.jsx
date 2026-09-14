@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import PageHero from '../components/PageHero.jsx'
 import { Section } from '../components/ui.jsx'
-import { KolamChain } from '../components/Motifs.jsx'
 
 // Vite picks up every image dropped into src/assets/gallery/
 // The filename becomes the title — e.g. "diwali-night-2024.jpg" → "Diwali Night 2024"
@@ -147,40 +146,6 @@ export default function Gallery() {
           )}
         </div>
 
-        {/* Thumbnail strip */}
-        {hasImages && IMAGES.length > 1 && (
-          <>
-            <div className="mx-auto my-12 max-w-xs">
-              <KolamChain units={10} className="h-4 w-full text-gold-500/50" />
-            </div>
-
-            <div className="mx-auto max-w-4xl">
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                {IMAGES.map((img, i) => (
-                  <button
-                    key={i}
-                    onClick={() => go(i)}
-                    aria-label={img.title}
-                    className={`group relative overflow-hidden rounded-xl transition-all duration-200 ${
-                      i === current
-                        ? 'ring-2 ring-gold-400 ring-offset-2'
-                        : 'opacity-60 hover:opacity-100'
-                    }`}
-                    style={{ aspectRatio: '1' }}
-                  >
-                    {img.src ? (
-                      <img src={img.src} alt={img.title} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-800 to-purple-950">
-                        <p className="px-1 text-center text-[9px] font-semibold leading-tight text-gold-300">{img.title}</p>
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
 
         {/* Empty state */}
         {!hasImages && (
