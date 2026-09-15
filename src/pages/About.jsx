@@ -138,15 +138,6 @@ export default function About() {
               ))}
             </div>
           </div>
-
-          <div className="relative">
-            <div className="grid grid-cols-2 gap-4">
-              <PlaceholderImage ratio="aspect-[3/4]" label="Community photo" className="translate-y-6" />
-              <PlaceholderImage ratio="aspect-[3/4]" label="Event photo" />
-              <PlaceholderImage ratio="aspect-[3/4]" label="Culture night" />
-              <PlaceholderImage ratio="aspect-[3/4]" label="Committee photo" className="translate-y-6" />
-            </div>
-          </div>
         </div>
       </Section>
 
