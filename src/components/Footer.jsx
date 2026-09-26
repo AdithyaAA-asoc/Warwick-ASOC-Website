@@ -98,7 +98,12 @@ export default function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-purple-800 pt-6 text-xs text-purple-400 sm:flex-row">
           <p>&copy; {new Date().getFullYear()} Warwick Asian Society. All rights reserved.</p>
-          <p>Affiliated with Warwick Students&rsquo; Union</p>
+          <div className="flex items-center gap-4">
+            <p>Affiliated with Warwick Students&rsquo; Union</p>
+            <NavLink to="/admin" className="text-purple-700 transition hover:text-purple-500">
+              Admin
+            </NavLink>
+          </div>
         </div>
       </div>
     </footer>
