@@ -390,7 +390,7 @@ function TicketLookup({ events }) {
             {ticket && (() => {
               const eventName = events.find((ev) => ev.id === ticket.event_id)?.name ?? ticket.event_id
               const ticketUrl = `https://warwickasiansociety.social/#/ticket/${ticket.ticket_code}`
-              const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(ticketUrl)}&color=170a2c&bgcolor=fdfbf6`
+              const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(ticketUrl)}&color=000000&bgcolor=ffffff`
               const pricePaid = ticket.price_paid_pence != null
                 ? ticket.price_paid_pence === 0 ? 'Free' : `£${(ticket.price_paid_pence / 100).toFixed(2)}`
                 : null
