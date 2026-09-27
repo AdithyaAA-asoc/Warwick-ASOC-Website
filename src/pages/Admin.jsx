@@ -951,7 +951,7 @@ function TicketsManagement() {
                   </td>
                   <td className="px-4 py-3">
                     <a
-                      href={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${t.ticket_code}&color=170a2c&bgcolor=fdfbf6`}
+                      href={`https://warwickasiansociety.social/#/ticket/${t.ticket_code}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-purple-600 underline underline-offset-2 hover:text-purple-900 text-xs"

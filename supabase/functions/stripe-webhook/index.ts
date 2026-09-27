@@ -97,7 +97,8 @@ async function handleTicket(
     year: 'numeric',
   })
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${finalCode}&color=170a2c&bgcolor=fdfbf6`
+  const ticketUrl = `https://warwickasiansociety.social/#/ticket/${finalCode}`
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(ticketUrl)}&color=170a2c&bgcolor=fdfbf6`
 
   const emailHtml = ticketEmailHtml({
     firstName,

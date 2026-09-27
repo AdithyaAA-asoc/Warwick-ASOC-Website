@@ -10,6 +10,7 @@ import Membership from './pages/Membership.jsx'
 import Gallery from './pages/Gallery.jsx'
 import Events from './pages/Events.jsx'
 import Admin from './pages/Admin.jsx'
+import Ticket from './pages/Ticket.jsx'
 
 // HashRouter is used deliberately: it lets the built site be opened
 // directly from a file (dist/index.html) or hosted on any static host
@@ -30,6 +31,7 @@ export default function App() {
               <Route path="/events" element={<Events />} />
             </Route>
             <Route path="/admin" element={<Admin />} />
+            <Route path="/ticket/:code" element={<Ticket />} />
           </Routes>
         </HashRouter>
         <JoinModal />
