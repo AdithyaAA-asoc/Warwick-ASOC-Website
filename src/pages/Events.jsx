@@ -396,7 +396,7 @@ function TicketLookup({ events }) {
                 : null
               return (
                 <div className="max-w-md rounded-xl border border-purple-100 bg-white p-4 flex gap-4">
-                  <img src={qrUrl} alt="QR code" className="h-28 w-28 shrink-0 rounded-lg border border-purple-100" />
+                  <img src={qrUrl} alt="QR code" className="h-48 w-48 shrink-0 rounded-lg border border-purple-100" />
                   <div className="min-w-0 space-y-1">
                     <p className="font-semibold text-purple-950">{eventName}</p>
                     <p className="text-sm text-ink-500">{ticket.first_name} {ticket.last_name}</p>
