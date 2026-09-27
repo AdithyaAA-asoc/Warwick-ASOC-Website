@@ -282,37 +282,45 @@ function IconPin() {
 function TicketLookup({ events }) {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
-  const [tickets, setTickets] = useState(null)
+  const [tickets, setTickets] = useState(null)   // all tickets for this email
+  const [selected, setSelected] = useState(null) // ticket_code of chosen event
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  function reset() {
+    setOpen(false)
+    setEmail('')
+    setTickets(null)
+    setSelected(null)
+    setError('')
+  }
 
   async function handleLookup(e) {
     e.preventDefault()
     setLoading(true)
     setError('')
     setTickets(null)
+    setSelected(null)
     try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/rpc/get_tickets_by_email`,
-        {
-          method: 'POST',
-          headers: {
-            apikey: ANON_KEY,
-            Authorization: `Bearer ${ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ lookup_email: email.trim().toLowerCase() }),
-        },
-      )
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_tickets_by_email`, {
+        method: 'POST',
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lookup_email: email.trim().toLowerCase() }),
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message ?? 'Lookup failed')
-      setTickets(Array.isArray(data) ? data : [])
+      const rows = Array.isArray(data) ? data : []
+      setTickets(rows)
+      // Auto-select if only one ticket
+      if (rows.length === 1) setSelected(rows[0].ticket_code)
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
   }
+
+  const ticket = tickets?.find((t) => t.ticket_code === selected) ?? null
 
   return (
     <div className="border-b border-purple-100 bg-purple-50/60">
@@ -325,17 +333,19 @@ function TicketLookup({ events }) {
             Didn't receive your ticket email? Find it here.
           </button>
         ) : (
-          <div className="py-2 space-y-4">
+          <div className="py-3 space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-purple-900">Find my ticket</p>
-              <button onClick={() => { setOpen(false); setTickets(null); setEmail('') }} className="text-xs text-purple-400 hover:text-purple-700">Close</button>
+              <button onClick={reset} className="text-xs text-purple-400 hover:text-purple-700">Close</button>
             </div>
+
+            {/* Step 1 — email */}
             <form onSubmit={handleLookup} className="flex gap-2 max-w-md">
               <input
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setTickets(null); setSelected(null) }}
                 placeholder="Email you used to buy the ticket"
                 className="flex-1 rounded-lg border border-purple-200 bg-white px-3 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
               />
@@ -354,34 +364,53 @@ function TicketLookup({ events }) {
               <p className="text-sm text-ink-500">No tickets found for that email. Make sure you use the same email you paid with.</p>
             )}
 
-            {tickets && tickets.length > 0 && (
-              <div className="space-y-4">
-                {tickets.map((t) => {
-                  const eventName = events.find((ev) => ev.id === t.event_id)?.name ?? t.event_id
-                  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${t.ticket_code}&color=170a2c&bgcolor=fdfbf6`
-                  const pricePaid = t.price_paid_pence != null
-                    ? t.price_paid_pence === 0 ? 'Free' : `£${(t.price_paid_pence / 100).toFixed(2)}`
-                    : null
-                  return (
-                    <div key={t.ticket_code} className="flex gap-4 rounded-xl border border-purple-100 bg-white p-4">
-                      <img src={qrUrl} alt="QR code" className="h-24 w-24 shrink-0 rounded-lg border border-purple-100" />
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="font-semibold text-purple-950">{eventName}</p>
-                        <p className="text-sm text-ink-500">{t.first_name} {t.last_name}</p>
-                        {t.release_name && (
-                          <p className="text-xs text-ink-400">
-                            {t.release_name}{t.is_member ? ' · Member price' : ' · Standard price'}
-                            {pricePaid ? ` · ${pricePaid}` : ''}
-                          </p>
-                        )}
-                        <p className="font-mono text-[10px] text-ink-300 break-all pt-1">{t.ticket_code}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-                <p className="text-xs text-ink-400">Screenshot your QR code and show it at the door.</p>
+            {/* Step 2 — event dropdown (only if multiple tickets) */}
+            {tickets && tickets.length > 1 && (
+              <div className="max-w-md space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-purple-500">Choose an event</p>
+                <select
+                  className="w-full rounded-lg border border-purple-200 bg-white px-3 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
+                  value={selected ?? ''}
+                  onChange={(e) => setSelected(e.target.value)}
+                >
+                  <option value="" disabled>Select an event…</option>
+                  {tickets.map((t) => {
+                    const eventName = events.find((ev) => ev.id === t.event_id)?.name ?? t.event_id
+                    return (
+                      <option key={t.ticket_code} value={t.ticket_code}>
+                        {eventName}
+                      </option>
+                    )
+                  })}
+                </select>
               </div>
             )}
+
+            {/* Step 3 — QR card */}
+            {ticket && (() => {
+              const eventName = events.find((ev) => ev.id === ticket.event_id)?.name ?? ticket.event_id
+              const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${ticket.ticket_code}&color=170a2c&bgcolor=fdfbf6`
+              const pricePaid = ticket.price_paid_pence != null
+                ? ticket.price_paid_pence === 0 ? 'Free' : `£${(ticket.price_paid_pence / 100).toFixed(2)}`
+                : null
+              return (
+                <div className="max-w-md rounded-xl border border-purple-100 bg-white p-4 flex gap-4">
+                  <img src={qrUrl} alt="QR code" className="h-28 w-28 shrink-0 rounded-lg border border-purple-100" />
+                  <div className="min-w-0 space-y-1">
+                    <p className="font-semibold text-purple-950">{eventName}</p>
+                    <p className="text-sm text-ink-500">{ticket.first_name} {ticket.last_name}</p>
+                    {ticket.release_name && (
+                      <p className="text-xs text-ink-400">
+                        {ticket.release_name}{ticket.is_member ? ' · Member price' : ' · Standard price'}
+                        {pricePaid ? ` · ${pricePaid}` : ''}
+                      </p>
+                    )}
+                    <p className="font-mono text-[10px] text-ink-300 break-all pt-1">{ticket.ticket_code}</p>
+                    <p className="text-xs text-ink-400 pt-1">Screenshot this QR and show it at the door.</p>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         )}
       </div>
