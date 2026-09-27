@@ -17,6 +17,16 @@ const headers = (extra = {}) => ({
 const get = (path) =>
   fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: headers() }).then((r) => r.json())
 
+async function deleteStorageImage(url) {
+  if (!url || !url.includes('/storage/v1/object/')) return
+  const match = url.match(/\/storage\/v1\/object\/(?:public\/)?event-images\/(.+)/)
+  if (!match) return
+  await fetch(`${SUPABASE_URL}/storage/v1/object/event-images/${match[1]}`, {
+    method: 'DELETE',
+    headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` },
+  })
+}
+
 const post = (table, body) =>
   fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',
@@ -175,15 +185,53 @@ function LoginScreen({ onLogin }) {
   )
 }
 
+// ── Shared utility ────────────────────────────────────────────────────────────
+
+function exportCSV(rows, columns, filename) {
+  const header = columns.map((c) => c.label).join(',')
+  const body = rows.map((row) =>
+    columns.map((c) => {
+      const val = c.format ? c.format(row[c.key], row) : (row[c.key] ?? '')
+      const str = String(val).replace(/"/g, '""')
+      return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str
+    }).join(','),
+  ).join('\n')
+  const blob = new Blob([header + '\n' + body], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function SortTh({ label, col, sort, onSort }) {
+  const active = sort.col === col
+  return (
+    <th
+      className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-purple-700"
+      onClick={() => onSort(col)}
+    >
+      {label}
+      <span className="ml-1 inline-block w-3 text-center">
+        {active ? (sort.dir === 'asc' ? '↑' : '↓') : <span className="opacity-20">↕</span>}
+      </span>
+    </th>
+  )
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 function Dashboard() {
+  const [tab, setTab] = useState('events') // 'events' | 'tickets' | 'members'
+  const [toast, setToast] = useState('')
+
+  // ── Events state ──
   const [events, setEvents] = useState([])
   const [releases, setReleases] = useState([])
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('list') // 'list' | 'edit' | 'create'
-  const [editing, setEditing] = useState(null) // event object being edited
-  const [toast, setToast] = useState('')
+  const [view, setView] = useState('list')
+  const [editing, setEditing] = useState(null)
 
   async function loadData() {
     setLoading(true)
@@ -203,26 +251,13 @@ function Dashboard() {
     setTimeout(() => setToast(''), 3000)
   }
 
-  function openEdit(event) {
-    setEditing(event)
-    setView('edit')
-  }
-
-  function openCreate() {
-    setEditing(null)
-    setView('create')
-  }
-
-  function backToList() {
-    setEditing(null)
-    setView('list')
-  }
+  function openEdit(event) { setEditing(event); setView('edit') }
+  function openCreate() { setEditing(null); setView('create') }
+  function backToList() { setEditing(null); setView('list') }
 
   async function handleSave(eventData, releasesData) {
     const isNew = view === 'create'
     const eventId = eventData.id
-
-    // Upsert event
     if (isNew) {
       const r = await post('events', eventData)
       if (!r.ok) { showToast('Failed to save event.'); return }
@@ -230,15 +265,11 @@ function Dashboard() {
       const r = await patch('events', `id=eq.${eventId}`, eventData)
       if (!r.ok) { showToast('Failed to update event.'); return }
     }
-
-    // Replace releases: delete old, insert new
     await del('event_releases', `event_id=eq.${eventId}`)
     if (releasesData.length > 0) {
       const rows = releasesData.map(({ _key, ...r }) => ({ ...r, event_id: eventId }))
       await post('event_releases', rows)
     }
-
-    // Upsert inventory row if capacity set
     if (eventData.ticket_capacity) {
       const existing = await get(`event_inventory?event_id=eq.${eventId}`)
       if (Array.isArray(existing) && existing.length === 0) {
@@ -246,6 +277,10 @@ function Dashboard() {
       } else {
         await patch('event_inventory', `event_id=eq.${eventId}`, { capacity: eventData.ticket_capacity })
       }
+    }
+    // Delete old image from storage if it was replaced
+    if (!isNew && editing?.image_url && editing.image_url !== eventData.image_url) {
+      await deleteStorageImage(editing.image_url)
     }
 
     showToast(isNew ? 'Event created!' : 'Event updated!')
@@ -263,6 +298,12 @@ function Dashboard() {
     backToList()
   }
 
+  const TABS = [
+    { key: 'events',  label: 'Events' },
+    { key: 'tickets', label: 'Tickets' },
+    { key: 'members', label: 'Members' },
+  ]
+
   return (
     <div>
       {toast && (
@@ -271,16 +312,29 @@ function Dashboard() {
         </div>
       )}
 
+      {/* Tab bar — hide when editing an event */}
       {view === 'list' && (
-        <EventsList
-          events={events}
-          releases={releases}
-          loading={loading}
-          onEdit={openEdit}
-          onCreate={openCreate}
-        />
+        <div className="mb-8 flex gap-1 border-b border-gray-200">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-5 py-2.5 text-sm font-semibold transition border-b-2 -mb-px ${
+                tab === t.key
+                  ? 'border-purple-700 text-purple-900'
+                  : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       )}
-      {(view === 'edit' || view === 'create') && (
+
+      {tab === 'events' && view === 'list' && (
+        <EventsList events={events} releases={releases} loading={loading} onEdit={openEdit} onCreate={openCreate} />
+      )}
+      {tab === 'events' && (view === 'edit' || view === 'create') && (
         <EventForm
           key={editing?.id ?? 'new'}
           event={editing}
@@ -291,6 +345,8 @@ function Dashboard() {
           isNew={view === 'create'}
         />
       )}
+      {tab === 'tickets' && <TicketsManagement />}
+      {tab === 'members' && <MembersManagement />}
     </div>
   )
 }
@@ -298,40 +354,91 @@ function Dashboard() {
 // ── Events List ───────────────────────────────────────────────────────────────
 
 function EventsList({ events, releases, loading, onEdit, onCreate }) {
+  const [editDropdown, setEditDropdown] = useState(false)
   const upcoming = events.filter((e) => !e.is_past)
   const past = events.filter((e) => e.is_past)
+  const allEvents = [...upcoming, ...past]
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-900">Events</h2>
-        <button
-          onClick={onCreate}
-          className="flex items-center gap-2 rounded-lg bg-purple-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-800"
-        >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          New Event
-        </button>
+    <div className="space-y-8">
+      <div>
+        <h2 className="mb-5 text-xl font-semibold text-gray-900">Events</h2>
+
+        {/* Action cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Create */}
+          <button
+            onClick={onCreate}
+            className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-purple-200 bg-purple-50/50 p-5 text-left transition hover:border-purple-400 hover:bg-purple-50"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-900 text-white">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </span>
+            <div>
+              <p className="font-semibold text-purple-900">Create New Event</p>
+              <p className="text-xs text-gray-500">Set up a new upcoming event with ticket releases</p>
+            </div>
+          </button>
+
+          {/* Edit */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-gray-900">Edit Existing Event</p>
+                <p className="mb-2 text-xs text-gray-500">Select an event to edit its details and releases</p>
+                {loading ? (
+                  <p className="text-xs text-gray-400">Loading…</p>
+                ) : (
+                  <select
+                    className={inp}
+                    defaultValue=""
+                    onChange={(e) => {
+                      const event = allEvents.find((ev) => ev.id === e.target.value)
+                      if (event) onEdit(event)
+                    }}
+                  >
+                    <option value="" disabled>Select an event…</option>
+                    {upcoming.length > 0 && (
+                      <optgroup label="Upcoming">
+                        {upcoming.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.name} — {new Date(`${e.event_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {past.length > 0 && (
+                      <optgroup label="Past">
+                        {past.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.name} — {new Date(`${e.event_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Overview table */}
       {loading ? (
-        <p className="py-12 text-center text-sm text-gray-400">Loading events…</p>
+        <p className="py-8 text-center text-sm text-gray-400">Loading events…</p>
       ) : (
-        <div className="space-y-8">
-          <EventTable
-            title="Upcoming"
-            events={upcoming}
-            releases={releases}
-            onEdit={onEdit}
-          />
-          <EventTable
-            title="Past"
-            events={past}
-            releases={releases}
-            onEdit={onEdit}
-          />
+        <div className="space-y-6">
+          <EventTable title="Upcoming" events={upcoming} releases={releases} onEdit={onEdit} />
+          <EventTable title="Past"     events={past}     releases={releases} onEdit={onEdit} />
         </div>
       )}
     </div>
@@ -520,12 +627,21 @@ function EventForm({ event, releases: initialReleases, onSave, onDelete, onCance
               <label className={lbl} htmlFor="ef-name">Event name</label>
               <input id="ef-name" type="text" required value={form.name} onChange={(e) => setName(e.target.value)} className={inp} placeholder="Garba & Dandiya Night" />
             </div>
-            {isNew && (
-              <div className="sm:col-span-2">
-                <label className={lbl} htmlFor="ef-id">URL slug (auto-generated)</label>
-                <input id="ef-id" type="text" required value={form.id} onChange={setField('id')} className={inp} placeholder="garba-dandiya-night-2026" />
-              </div>
-            )}
+            <div className="sm:col-span-2">
+              <label className={lbl} htmlFor="ef-id">
+                URL slug {isNew ? '(auto-generated)' : '(read-only)'}
+              </label>
+              <input
+                id="ef-id"
+                type="text"
+                required
+                value={form.id}
+                onChange={isNew ? setField('id') : undefined}
+                readOnly={!isNew}
+                className={inp + (!isNew ? ' bg-gray-50 text-gray-400 cursor-not-allowed' : '')}
+                placeholder="garba-dandiya-night-2026"
+              />
+            </div>
             <div>
               <label className={lbl} htmlFor="ef-date">Date</label>
               <input id="ef-date" type="date" required value={form.event_date} onChange={setField('event_date')} className={inp} />
@@ -732,6 +848,224 @@ function ReleaseRow({ release, onChange, onRemove }) {
         <span className="text-xs font-semibold text-purple-800">Members only</span>
         <span className="text-xs text-gray-400">— only paid members can buy tickets in this release (standard price ignored)</span>
       </label>
+    </div>
+  )
+}
+
+// ── Tickets Management ────────────────────────────────────────────────────────
+
+const TICKET_COLS = [
+  { key: 'email',             label: 'Email' },
+  { key: 'first_name',        label: 'First Name' },
+  { key: 'last_name',         label: 'Last Name' },
+  { key: 'event_id',          label: 'Event' },
+  { key: 'release_name',      label: 'Release' },
+  { key: 'price_paid_pence',  label: 'Price Paid', format: (v) => v != null ? (v === 0 ? 'Free' : `£${(v / 100).toFixed(2)}`) : '' },
+  { key: 'is_member',         label: 'Member', format: (v) => v ? 'Yes' : 'No' },
+  { key: 'paid_at',           label: 'Paid At', format: (v) => v ? new Date(v).toLocaleString('en-GB') : '' },
+  { key: 'ticket_code',       label: 'Ticket Code' },
+]
+
+function TicketsManagement() {
+  const [tickets, setTickets] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [sort, setSort] = useState({ col: 'paid_at', dir: 'desc' })
+
+  useEffect(() => {
+    get('tickets?order=paid_at.desc').then((data) => {
+      setTickets(Array.isArray(data) ? data : [])
+      setLoading(false)
+    })
+  }, [])
+
+  function toggleSort(col) {
+    setSort((s) => ({ col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc' }))
+  }
+
+  const filtered = tickets
+    .filter((t) => !search || t.email?.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      const av = a[sort.col] ?? ''
+      const bv = b[sort.col] ?? ''
+      return sort.dir === 'asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av))
+    })
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold text-gray-900">Tickets</h2>
+        <div className="flex gap-2">
+          <input
+            type="email"
+            placeholder="Search by email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={inp + ' w-64'}
+          />
+          <button
+            onClick={() => exportCSV(filtered, TICKET_COLS, 'tickets.csv')}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:border-purple-300 hover:text-purple-700 transition"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+            </svg>
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="py-12 text-center text-sm text-gray-400">Loading tickets…</p>
+      ) : filtered.length === 0 ? (
+        <p className="py-12 text-center text-sm text-gray-400">{search ? 'No tickets match that email.' : 'No tickets yet.'}</p>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="border-b border-gray-100 bg-gray-50">
+              <tr>
+                {TICKET_COLS.filter((c) => c.key !== 'ticket_code').map((c) => (
+                  <SortTh key={c.key} label={c.label} col={c.key} sort={sort} onSort={toggleSort} />
+                ))}
+                <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-widest text-gray-400">QR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((t) => (
+                <tr key={t.id ?? t.ticket_code} className="border-b border-gray-50 last:border-0 hover:bg-purple-50/30 transition">
+                  <td className="px-4 py-3 text-gray-700">{t.email}</td>
+                  <td className="px-4 py-3 text-gray-700">{t.first_name}</td>
+                  <td className="px-4 py-3 text-gray-700">{t.last_name}</td>
+                  <td className="px-4 py-3 text-gray-600">{t.event_id}</td>
+                  <td className="px-4 py-3 text-gray-600">{t.release_name ?? '—'}</td>
+                  <td className="px-4 py-3 font-semibold text-gray-800">
+                    {t.price_paid_pence != null ? (t.price_paid_pence === 0 ? 'Free' : `£${(t.price_paid_pence / 100).toFixed(2)}`) : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    {t.is_member
+                      ? <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">Yes</span>
+                      : <span className="text-gray-400">No</span>}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                    {t.paid_at ? new Date(t.paid_at).toLocaleString('en-GB') : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <a
+                      href={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${t.ticket_code}&color=170a2c&bgcolor=fdfbf6`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-purple-600 underline underline-offset-2 hover:text-purple-900 text-xs"
+                    >
+                      View QR
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="px-4 py-3 text-xs text-gray-400">{filtered.length} ticket{filtered.length !== 1 ? 's' : ''}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Members Management ────────────────────────────────────────────────────────
+
+const MEMBER_COLS = [
+  { key: 'email',             label: 'Email' },
+  { key: 'first_name',        label: 'First Name' },
+  { key: 'last_name',         label: 'Last Name' },
+  { key: 'college_year',      label: 'Year' },
+  { key: 'paid',              label: 'Paid', format: (v) => v ? 'Yes' : 'No' },
+  { key: 'paid_at',           label: 'Paid At', format: (v) => v ? new Date(v).toLocaleString('en-GB') : '' },
+]
+
+function MembersManagement() {
+  const [members, setMembers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [sort, setSort] = useState({ col: 'paid_at', dir: 'desc' })
+
+  useEffect(() => {
+    get('members?order=created_at.desc').then((data) => {
+      setMembers(Array.isArray(data) ? data : [])
+      setLoading(false)
+    })
+  }, [])
+
+  function toggleSort(col) {
+    setSort((s) => ({ col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc' }))
+  }
+
+  const filtered = members
+    .filter((m) => !search || m.email?.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      const av = a[sort.col] ?? ''
+      const bv = b[sort.col] ?? ''
+      return sort.dir === 'asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av))
+    })
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold text-gray-900">Members</h2>
+        <div className="flex gap-2">
+          <input
+            type="email"
+            placeholder="Search by email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={inp + ' w-64'}
+          />
+          <button
+            onClick={() => exportCSV(filtered, MEMBER_COLS, 'members.csv')}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:border-purple-300 hover:text-purple-700 transition"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+            </svg>
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="py-12 text-center text-sm text-gray-400">Loading members…</p>
+      ) : filtered.length === 0 ? (
+        <p className="py-12 text-center text-sm text-gray-400">{search ? 'No members match that email.' : 'No members yet.'}</p>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="border-b border-gray-100 bg-gray-50">
+              <tr>
+                {MEMBER_COLS.map((c) => (
+                  <SortTh key={c.key} label={c.label} col={c.key} sort={sort} onSort={toggleSort} />
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((m) => (
+                <tr key={m.id} className="border-b border-gray-50 last:border-0 hover:bg-purple-50/30 transition">
+                  <td className="px-4 py-3 text-gray-700">{m.email}</td>
+                  <td className="px-4 py-3 text-gray-700">{m.first_name}</td>
+                  <td className="px-4 py-3 text-gray-700">{m.last_name}</td>
+                  <td className="px-4 py-3 text-gray-600">{m.college_year}</td>
+                  <td className="px-4 py-3">
+                    {m.paid
+                      ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">Paid</span>
+                      : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500">Unpaid</span>}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                    {m.paid_at ? new Date(m.paid_at).toLocaleString('en-GB') : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="px-4 py-3 text-xs text-gray-400">{filtered.length} member{filtered.length !== 1 ? 's' : ''}</p>
+        </div>
+      )}
     </div>
   )
 }
