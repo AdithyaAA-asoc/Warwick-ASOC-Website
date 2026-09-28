@@ -337,7 +337,7 @@ export default function TicketModal() {
               : 'Secure payment via Stripe · QR code ticket sent by email after purchase.'}
           </p>
           <p className="text-center text-xs text-ink-400 mt-1">
-            Once registered please check confirmation email (inbox / spam)
+            Once registered please check confirmation email (inbox or spam)
           </p>
         </form>
       </div>
