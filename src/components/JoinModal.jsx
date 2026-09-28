@@ -220,6 +220,9 @@ export default function JoinModal() {
           <p className="text-center text-xs text-ink-300">
             Secure payment via Stripe · Confirmation email sent after payment
           </p>
+          <p className="text-center text-xs text-ink-400 mt-1">
+            Once registered please check confirmation email (inbox or spam)
+          </p>
         </form>
       </div>
     </div>,
