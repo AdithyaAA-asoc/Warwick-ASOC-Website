@@ -986,6 +986,30 @@ function MembersManagement() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState({ col: 'paid_at', dir: 'desc' })
+  const [sending, setSending] = useState({}) // email → true while in-flight
+  const [sentMsg, setSentMsg] = useState({}) // email → 'Sent!' or error
+
+  async function resendEmail(email) {
+    setSending((s) => ({ ...s, [email]: true }))
+    setSentMsg((s) => ({ ...s, [email]: '' }))
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/resend-member-email`, {
+        method: 'POST',
+        headers: {
+          apikey: ANON_KEY,
+          Authorization: `Bearer ${ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      setSentMsg((s) => ({ ...s, [email]: res.ok ? 'Sent!' : (data.error ?? 'Failed') }))
+    } catch {
+      setSentMsg((s) => ({ ...s, [email]: 'Failed' }))
+    } finally {
+      setSending((s) => ({ ...s, [email]: false }))
+    }
+  }
 
   useEffect(() => {
     get('members?order=created_at.desc').then((data) => {
@@ -1042,6 +1066,7 @@ function MembersManagement() {
                 {MEMBER_COLS.map((c) => (
                   <SortTh key={c.key} label={c.label} col={c.key} sort={sort} onSort={toggleSort} />
                 ))}
+                <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-widest text-gray-400"></th>
               </tr>
             </thead>
             <tbody>
@@ -1058,6 +1083,19 @@ function MembersManagement() {
                   </td>
                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                     {m.paid_at ? new Date(m.paid_at).toLocaleString('en-GB') : '—'}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {m.paid && (
+                      sentMsg[m.email]
+                        ? <span className={`text-xs font-semibold ${sentMsg[m.email] === 'Sent!' ? 'text-green-600' : 'text-red-500'}`}>{sentMsg[m.email]}</span>
+                        : <button
+                            onClick={() => resendEmail(m.email)}
+                            disabled={sending[m.email]}
+                            className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 hover:border-purple-300 hover:text-purple-700 transition disabled:opacity-50"
+                          >
+                            {sending[m.email] ? 'Sending…' : 'Resend email'}
+                          </button>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -145,25 +145,7 @@ function TicketProgressBar({ avail }) {
   )
 }
 
-export function EventCard({ event, past = false, avail, onGetTickets }) {
-  const { openTicketModal } = useTicketModal()
-  const handleGetTickets = onGetTickets ?? openTicketModal
-  const activeRelease = getActiveRelease(event.releases)
-  const nextRelease = getNextRelease(event.releases)
-  const hasTicketing = !!event.releases?.length
-  const isFree = activeRelease?.pricePence === 0 && activeRelease?.memberPricePence === 0
-  const soldOut = avail && avail.remaining <= 0
-  const lowStock = avail && avail.remaining > 0 && avail.remaining <= Math.min(10, Math.ceil(avail.capacity * 0.15))
-  const sellingFast = avail && !soldOut && (avail.sold / avail.capacity) >= 0.5
-
-  const ctaLabel = isFree
-    ? 'Register Free'
-    : lowStock
-      ? `Only ${avail.remaining} Left — Buy Now`
-      : sellingFast
-        ? 'Get Tickets — Going Fast'
-        : 'Get Tickets'
-
+export function EventCard({ event, past = false }) {
   return (
     <Card className={`flex flex-col overflow-hidden p-0 ${past ? 'opacity-90' : ''}`}>
       <div className="relative">
@@ -175,23 +157,6 @@ export function EventCard({ event, past = false, avail, onGetTickets }) {
           ratio="aspect-[16/10]"
           rounded="rounded-none rounded-t-2xl"
         />
-        {!past && activeRelease && !soldOut && (
-          <Badge className={`absolute right-4 top-4 shadow-sm ${activeRelease.membersOnly ? 'bg-purple-700 text-white' : 'bg-white/90'}`}>
-            {activeRelease.membersOnly
-              ? `★ Members — ${pence(activeRelease.memberPricePence)}`
-              : isFree ? 'Free' : `${activeRelease.name} — ${pence(activeRelease.pricePence)}`}
-          </Badge>
-        )}
-        {!past && !activeRelease && nextRelease && !soldOut && (
-          <Badge className="absolute right-4 top-4 bg-white/90">
-            From {formatShortDate(nextRelease.startDate)}
-          </Badge>
-        )}
-        {!past && soldOut && (
-          <span className="absolute right-4 top-4 rounded-full bg-ink-900/80 px-3 py-1 text-xs font-semibold text-white">
-            Sold Out
-          </span>
-        )}
         {past && (
           <span className="absolute left-4 top-4 rounded-full bg-purple-950/80 px-3 py-1 text-xs font-semibold text-white">
             Past Event
@@ -215,40 +180,6 @@ export function EventCard({ event, past = false, avail, onGetTickets }) {
         </div>
 
         <p className="flex-1 text-sm leading-relaxed text-ink-500">{event.description}</p>
-
-        {!past && (
-          <div className="mt-2 space-y-3 border-t border-purple-50 pt-4">
-            {hasTicketing ? (
-              soldOut ? (
-                <Button variant="outline" className="w-full" disabled>Sold Out</Button>
-              ) : activeRelease ? (
-                <>
-                  {avail && <TicketProgressBar avail={avail} />}
-
-                  <Button
-                    variant="primary"
-                    className={`w-full transition-shadow duration-200 ${
-                      lowStock ? 'shadow-[0_0_0_3px_rgba(251,191,36,0.5)] hover:shadow-[0_0_0_4px_rgba(251,191,36,0.6)]' : ''
-                    }`}
-                    onClick={() => handleGetTickets(event)}
-                  >
-                    {ctaLabel}
-                  </Button>
-
-                  <ReleaseCountdown endDate={activeRelease.endDate} />
-                </>
-              ) : nextRelease ? (
-                <Button variant="outline" className="w-full" disabled>
-                  {nextRelease.name} opens {formatShortDate(nextRelease.startDate)}
-                </Button>
-              ) : (
-                <Button variant="outline" className="w-full" disabled>Tickets Closed</Button>
-              )
-            ) : (
-              <Button variant="outline" className="w-full" disabled>Tickets Coming Soon</Button>
-            )}
-          </div>
-        )}
       </div>
     </Card>
   )
@@ -538,7 +469,6 @@ export default function Events() {
                 key={event.id}
                 event={event}
                 past={tab === 'past'}
-                avail={availability[event.id]}
               />
             ))}
           </div>
