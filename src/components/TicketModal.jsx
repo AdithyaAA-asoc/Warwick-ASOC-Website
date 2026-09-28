@@ -336,6 +336,9 @@ export default function TicketModal() {
               ? 'Your QR code ticket will be sent to your email.'
               : 'Secure payment via Stripe · QR code ticket sent by email after purchase.'}
           </p>
+          <p className="text-center text-xs text-ink-400 mt-1">
+            Once registered please check confirmation email (inbox / spam)
+          </p>
         </form>
       </div>
     </div>,
