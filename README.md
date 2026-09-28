@@ -49,7 +49,6 @@ supabase/
   functions/
     create-ticket-checkout/   Creates Stripe Checkout session
     stripe-webhook/           Handles payment confirmation, inserts ticket, sends email
-
 docs/               Developer documentation
 .github/workflows/  GitHub Actions deploy pipeline
 ```
